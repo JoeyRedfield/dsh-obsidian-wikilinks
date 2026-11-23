@@ -1,0 +1,54 @@
+{
+  "name": "dsh-obsidian-wikilinks",
+  "version": "0.1.0",
+  "description": "Make [[wiki links]] in DeepSeek Harness chat messages clickable: resolves the note in the session workspace and opens it in the right sidebar, or Cmd/Ctrl-click to open it in the default app. · 让 DSH 会话正文里的 [[笔记链接]] 标蓝可点。",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "obsidian",
+    "wikilink",
+    "markdown",
+    "notes"
+  ],
+  "license": "MIT",
+  "author": "JoeyRedfield",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JoeyRedfield/dsh-obsidian-wikilinks.git"
+  },
+  "homepage": "https://github.com/JoeyRedfield/dsh-obsidian-wikilinks#readme",
+  "bugs": {
+    "url": "https://github.com/JoeyRedfield/dsh-obsidian-wikilinks/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "files": [
+    "lib",
+    "client.js",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./client.js",
+    "./icon": "./icon.svg"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  }
+}

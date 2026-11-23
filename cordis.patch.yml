@@ -1,0 +1,5 @@
+# Host half. This plugin only decorates the Web transcript in the browser; the
+# `dsh.client` field in package.json tells the loader to ship client.js.
+- insert:
+    - id: obsidian-wikilinks
+      name: dsh-obsidian-wikilinks
