@@ -1,6 +1,6 @@
 {
   "name": "dsh-obsidian-wikilinks",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Make [[wiki links]] in DeepSeek Harness chat messages clickable: resolves the note in the session workspace and opens it in the right sidebar, or Cmd/Ctrl-click to open it in the default app. · 让 DSH 会话正文里的 [[笔记链接]] 标蓝可点。",
   "keywords": [
     "dsh",
