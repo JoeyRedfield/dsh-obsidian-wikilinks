@@ -44,6 +44,12 @@ window.__ModuleLoader__.load({
     const LINK_TAG = 'data-dsw-wl'
     const STATE_TAG = 'data-dsw-wl-state'
     const PATTERN = /\[\[([^\[\]\n]{1,300})\]\]/g
+    /**
+     * 带空格的裸 Markdown 链接：`[标签](学习/Agent 与自动化/x.md)`。
+     * 目标里一旦有空格，CommonMark 就不认这条内联链接，整段退回纯文本，
+     * DSH 的 `case "link"` 分支也就没机会把它渲染成文件按钮——这里补上。
+     */
+    const MD_LINK = /(!?)\[([^\[\]\n]{1,300})\]\(([^()\n]{1,600})\)/g
     /** 一个永不 abort 的 signal：点击解析是短请求，页面卸载时无所谓。 */
     const SIGNAL = new AbortController().signal
 
@@ -124,7 +130,7 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * 扫描流根，把带 `[[...]]` 的文本节点拆成"文本 + 链接"。
+     * 扫描流根，把带 `[[...]]`（或带空格的裸 Markdown 链接）的文本节点拆成"文本 + 链接"。
      * @param {object} control 会话流控制器。
      */
     function decorate(control) {
@@ -134,7 +140,8 @@ window.__ModuleLoader__.load({
       const pending = []
       for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
         const value = node.nodeValue
-        if (value === null || value.indexOf('[[') < 0) continue
+        if (value === null) continue
+        if (value.indexOf('[[') < 0 && value.indexOf('](') < 0) continue
         const parent = node.parentElement
         if (parent === null) continue
         if (parent.closest(SKIP) !== null) continue
@@ -146,30 +153,65 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * 把单个文本节点里的 `[[...]]` 换成链接，其余原样保留。
-     * @param {object} control 会话流控制器。
-     * @param {Text} node 待拆分的文本节点。
+     * 收集一个文本节点里所有可装饰的片段，按起点排序并丢弃重叠项。
+     * @param {string} value 文本节点的内容。
+     * @returns {{start: number, end: number, label: string, target: string, markdown: boolean}[]} 片段。
      */
-    function splitNode(control, node) {
-      const value = node.nodeValue ?? ''
+    function collect(value) {
+      const matches = []
       PATTERN.lastIndex = 0
-      const pieces = []
-      let last = 0
       let match
       while ((match = PATTERN.exec(value)) !== null) {
         const start = match.index
         // `![[图.png]]` 是 Obsidian 的嵌入语法，不当作笔记链接。
         if (start > 0 && value[start - 1] === '!') continue
-        if (start > last) pieces.push({ text: value.slice(last, start) })
-        pieces.push({ text: match[0], target: match[1] })
-        last = start + match[0].length
+        matches.push({ start, end: start + match[0].length, label: match[0], target: match[1], markdown: false })
       }
-      if (last === 0) return
+      MD_LINK.lastIndex = 0
+      while ((match = MD_LINK.exec(value)) !== null) {
+        const start = match.index
+        if (match[1] === '!') continue
+        const destination = match[3]
+        // 没空格的链接本来就能被解析器渲染成文件按钮，不用我们管。
+        if (!/\s/u.test(destination)) continue
+        // 带尖括号的写法是合法语法，同样已渲染。
+        if (destination.indexOf('<') >= 0 || destination.indexOf('>') >= 0) continue
+        // 外链、mailto 之类不碰。
+        if (/^[a-z][a-z0-9+.-]*:/iu.test(destination.trim())) continue
+        matches.push({ start, end: start + match[0].length, label: match[2], target: destination, markdown: true })
+      }
+      matches.sort((a, b) => a.start - b.start || b.end - a.end)
+      const picked = []
+      let cursor = -1
+      for (const item of matches) {
+        if (item.start < cursor) continue
+        picked.push(item)
+        cursor = item.end
+      }
+      return picked
+    }
+
+    /**
+     * 把单个文本节点里的链接语法换成链接，其余原样保留。
+     * @param {object} control 会话流控制器。
+     * @param {Text} node 待拆分的文本节点。
+     */
+    function splitNode(control, node) {
+      const value = node.nodeValue ?? ''
+      const matches = collect(value)
+      if (matches.length === 0) return
+      const pieces = []
+      let last = 0
+      for (const item of matches) {
+        if (item.start > last) pieces.push({ text: value.slice(last, item.start) })
+        pieces.push({ text: item.label, target: item.target, markdown: item.markdown })
+        last = item.end
+      }
       if (last < value.length) pieces.push({ text: value.slice(last) })
       const fragment = document.createDocumentFragment()
       for (const piece of pieces) {
         if (piece.target === undefined) fragment.appendChild(document.createTextNode(piece.text))
-        else fragment.appendChild(createLink(control, piece.target, piece.text))
+        else fragment.appendChild(createLink(control, piece.target, piece.text, piece.markdown))
       }
       node.replaceWith(fragment)
     }
@@ -177,33 +219,35 @@ window.__ModuleLoader__.load({
     /**
      * 造一个蓝色链接锚点。
      * @param {object} control 会话流控制器。
-     * @param {string} target `[[ ]]` 里的原文（可能带 `|别名`、`#标题`）。
-     * @param {string} label 实际显示的文字（保留方括号原样）。
+     * @param {string} target 链接目标（`[[ ]]` 内文，或 Markdown 链接的圆括号内容）。
+     * @param {string} label 实际显示的文字。
+     * @param {boolean} markdown 是否来自 Markdown 链接语法。
      * @returns {HTMLAnchorElement} 链接元素。
      */
-    function createLink(control, target, label) {
+    function createLink(control, target, label, markdown) {
       const link = document.createElement('a')
       link.setAttribute(LINK_TAG, target)
       link.setAttribute('role', 'link')
       link.setAttribute('tabindex', '0')
       link.className = 'dsw-wl'
       link.textContent = label
-      link.title = '在侧边栏打开：' + target + '\n⌘ / Alt 点击用 Obsidian 打开'
-      link.addEventListener('click', (event) => { activate(control, link, target, event) })
+      link.title = '在侧边栏打开：' + normalizeTarget(target, markdown) + '\n⌘ / Alt 点击用默认应用打开'
+      link.addEventListener('click', (event) => { activate(control, link, target, markdown, event) })
       link.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' || event.key === ' ') activate(control, link, target, event)
+        if (event.key === 'Enter' || event.key === ' ') activate(control, link, target, markdown, event)
       })
       return link
     }
 
     /**
-     * 解析并打开一个 wiki 链接目标。
+     * 解析并打开一个链接目标。
      * @param {object} control 会话流控制器。
      * @param {HTMLAnchorElement} link 被点击的链接。
-     * @param {string} target `[[ ]]` 里的原文。
+     * @param {string} target 链接原始目标。
+     * @param {boolean} markdown 是否来自 Markdown 链接语法。
      * @param {Event} event 触发事件。
      */
-    async function activate(control, link, target, event) {
+    async function activate(control, link, target, markdown, event) {
       event.preventDefault()
       event.stopPropagation()
       const sessionId = control.sessionId
@@ -213,13 +257,13 @@ window.__ModuleLoader__.load({
       link.setAttribute(STATE_TAG, 'resolving')
       let absolute = null
       try {
-        absolute = await locate(sessionId, target)
+        absolute = await locate(sessionId, target, markdown)
       } catch (error) {
         absolute = null
       }
       if (absolute === null) {
         link.setAttribute(STATE_TAG, 'missing')
-        link.title = '没找到笔记：' + target
+        link.title = '没找到笔记：' + normalizeTarget(target, markdown)
         return
       }
       link.removeAttribute(STATE_TAG)
@@ -261,22 +305,32 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * 去掉别名、标题、块引用，只留目标路径。
-     * @param {string} raw `[[ ]]` 里的原文。
+     * 去掉别名、标题、块引用（以及 Markdown 链接里的 `%20`、标题、尖括号），只留目标路径。
+     * @param {string} raw 链接原始目标。
+     * @param {boolean} [markdown] 是否来自 Markdown 链接语法。
      * @returns {string} 目标路径。
      */
-    function normalizeTarget(raw) {
+    function normalizeTarget(raw, markdown) {
+      if (markdown === true) {
+        let value = raw.trim()
+        if (value.length > 1 && value.startsWith('<') && value.endsWith('>')) value = value.slice(1, -1)
+        value = value.replace(/\s+"[^"]*"$/u, '')
+        value = value.split('#')[0]
+        try { value = decodeURIComponent(value) } catch (error) { /* 保留原文 */ }
+        return value.replace(/\\/g, '/').replace(/^\.\//u, '').trim()
+      }
       return raw.split('|')[0].split('#')[0].split('^')[0].trim()
     }
 
     /**
-     * 把 wiki 目标解析成 Host 文件系统里的绝对路径。
+     * 把链接目标解析成 Host 文件系统里的绝对路径。
      * @param {string} sessionId 会话 id。
-     * @param {string} raw `[[ ]]` 里的原文。
+     * @param {string} raw 链接原始目标。
+     * @param {boolean} [markdown] 是否来自 Markdown 链接语法。
      * @returns {Promise<string | null>} 找不到时返回 null。
      */
-    async function locate(sessionId, raw) {
-      const wanted = normalizeTarget(raw)
+    async function locate(sessionId, raw, markdown) {
+      const wanted = normalizeTarget(raw, markdown)
       if (wanted === '') return null
       const workspaceFiles = services.remote.workspaceFiles
       const candidates = /\.md$/i.test(wanted) ? [wanted] : [wanted, wanted + '.md']

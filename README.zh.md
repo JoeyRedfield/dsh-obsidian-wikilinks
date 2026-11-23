@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/dsh-obsidian-wikilinks)](https://www.npmjs.com/package/dsh-obsidian-wikilinks) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-让 DeepSeek Harness 会话正文里的 `[[wiki 链接]]` **标蓝、可点击**，点开就是对应的笔记。
+让 DeepSeek Harness 会话正文里的 `[[wiki 链接]]` **标蓝、可点击**，点开就是对应的笔记；路径带空格、因而被 CommonMark 判成纯文本的裸 Markdown 链接，也一并兜住。
 
 [English](README.md) | 中文
 
@@ -20,6 +20,14 @@
 4. 相对路径按会话工作区根解析，绝对路径原样使用。
 
 `![[图片]]` 是 Obsidian 的嵌入语法，不当作笔记链接，原样保留。
+
+## 带空格的 Markdown 链接
+
+CommonMark 规定链接目标里不能有空格（除非用 `<...>` 包起来），所以 `[标签](学习/Agent 与自动化/笔记.md)` 根本不算链接——整段 `[...](...)` 退回纯文本，连 DSH 自带的文件链接按钮都没机会生效。插件把这种写法也接住：只保留标签作为蓝色链接，目标按和 `[[ ]]` 完全一样的规则解析。
+
+- `[上下文工程](学习/ai相关/Agent 与自动化/上下文工程.md)` → **上下文工程**，标蓝可点
+- `[标签](<带空格.md>)`、`[标签](path%20with%20spaces.md)` 是合法 Markdown，DSH 自己就能渲染，插件不碰
+- 外链（`https://`、`mailto:`）、图片、`![[嵌入]]` 一律不改写
 
 ## 安装
 

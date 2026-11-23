@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/dsh-obsidian-wikilinks)](https://www.npmjs.com/package/dsh-obsidian-wikilinks) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Turn `[[wiki links]]` in DeepSeek Harness chat transcripts into **blue, clickable links** that open the matching note.
+Turn `[[wiki links]]` in DeepSeek Harness chat transcripts into **blue, clickable links** that open the matching note. Bare Markdown links whose path contains spaces, which CommonMark refuses to parse, get the same treatment.
 
 English | [中文](README.zh.md)
 
@@ -20,6 +20,14 @@ English | [中文](README.zh.md)
 4. relative targets resolve against the session workspace root; absolute paths are used as-is.
 
 `![[image]]` is an Obsidian embed, not a note link, and is left untouched.
+
+## Markdown links with spaces in the path
+
+A CommonMark link destination cannot contain a space unless it is wrapped in `<...>`, so `[label](学习/Agent 与自动化/笔记.md)` is not a link at all — the whole `[...](...)` stays plain text, and even DSH's own file-link button never runs. This plugin catches that shape too: the label becomes the blue link and the destination is resolved exactly like a wiki target.
+
+- `[上下文工程](学习/ai相关/Agent 与自动化/上下文工程.md)` → **上下文工程**, blue and clickable
+- `[Label](<path with spaces.md>)` and `[Label](path%20with%20spaces.md)` are valid Markdown, so DSH renders them itself — left alone
+- external targets (`https://`, `mailto:`), images and `![[embeds]]` are never rewritten
 
 ## Install
 
