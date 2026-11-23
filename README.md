@@ -1,5 +1,7 @@
 # dsh-obsidian-wikilinks
 
+[![npm](https://img.shields.io/npm/v/dsh-obsidian-wikilinks)](https://www.npmjs.com/package/dsh-obsidian-wikilinks) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Turn `[[wiki links]]` in DeepSeek Harness chat transcripts into **blue, clickable links** that open the matching note.
 
 English | [中文](README.zh.md)
@@ -20,6 +22,8 @@ English | [中文](README.zh.md)
 `![[image]]` is an Obsidian embed, not a note link, and is left untouched.
 
 ## Install
+
+Published on [npm](https://www.npmjs.com/package/dsh-obsidian-wikilinks) — plain JavaScript, no build step.
 
 From the plugin market: open **Plugins → Plugin Market** and search for `obsidian-wikilinks`.
 

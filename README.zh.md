@@ -1,5 +1,7 @@
 # dsh-obsidian-wikilinks
 
+[![npm](https://img.shields.io/npm/v/dsh-obsidian-wikilinks)](https://www.npmjs.com/package/dsh-obsidian-wikilinks) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 让 DeepSeek Harness 会话正文里的 `[[wiki 链接]]` **标蓝、可点击**，点开就是对应的笔记。
 
 [English](README.md) | 中文
@@ -20,6 +22,8 @@
 `![[图片]]` 是 Obsidian 的嵌入语法，不当作笔记链接，原样保留。
 
 ## 安装
+
+已发布到 [npm](https://www.npmjs.com/package/dsh-obsidian-wikilinks)，纯 JavaScript，无需构建。
 
 插件市场：打开 **Plugins → Plugin Market**，搜索 `obsidian-wikilinks`。
 
